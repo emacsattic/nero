@@ -1,0 +1,8 @@
+$ svnsync init https://myproject.googlecode.com/svn file:///path/to/localrepos
+Copied properties for revision 0.
+$ svnsync sync https://myproject.googlecode.com/svn
+Committed revision 1.
+Copied properties for revision 1.
+Committed revision 2.
+Copied properties for revision 2.
+[...]
