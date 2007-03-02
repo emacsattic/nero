@@ -1,8 +1,9 @@
 ;;; nero.el --- a fast Lynx-based browser for Emacs
 
-;; Copyright (C) 2005 Joe Corneli <jcorneli@math.utexas.edu>
+;; Copyright (C) 2005-2007 Joe Corneli <jcorneli@math.utexas.edu>
+;; Copyright (C) 2007      Xavier Maillard <zedek@gnu.org>
 
-;; Time-stamp: <jac -- Fri Apr 15 11:41:45 CDT 2005>
+;; Time-stamp: <2007-03-02 16:38:39 jcorneli>
 
 ;; This file is not part of GNU Emacs, but it is distributed under
 ;; the same terms as GNU Emacs.
@@ -134,7 +135,11 @@
 
 ;;; Code:
 
-(require 'cl)
+(eval-when-compile
+  (require 'cl))
+
+(defconst nero-version "0.2"
+  "FIXME")
 
 (defvar nero-homepage "http://www.ma.utexas.edu/~jcorneli/"
   "*Variable for user homepage.")
@@ -341,8 +346,8 @@ Currently, only numbered links are fontified.")
 The old layout is restored when either `nero-hide' or
 `nero-finished' runs.")
 
-(defvar nero-history nil "Record of pages already visited.
-See also `nero-future', `nero-ariadnes-thread'.")
+(eval-when-compile (defvar nero-history nil "Record of pages already visited.
+See also `nero-future', `nero-ariadnes-thread'."))
 
 (defvar nero-future nil
   "Record of pages visited and then retreated from with `nero-back'.
@@ -455,6 +460,13 @@ The variable is immediately set back to nil after the hook runs.")
 (defvar load-buffer-process nil "The load buffer process")
 (defvar load-url-process nil "The load url process")
 
+;; For compatibility sake
+(defalias 'nero-string-to-int
+  (if (fboundp 'string-to-number)
+      'string-to-number
+    'string-to-int))
+
+;;;###autoload
 (defun nero-mode ()
   "Major mode for browsing the web.
 Commands:
@@ -804,7 +816,7 @@ or a function that takes URL as an argument."
   "Do replacements to decode and render unicode codepoint strings."
   (goto-char (point-min))
   (while (re-search-forward "&#\\(x\\)?\\([0-9a-f]+\\);" nil t)
-    (let* ((ucs (string-to-number (match-string 2)
+    (let* ((ucs (nero-string-to-int (match-string 2)
                                   (if (match-beginning 1) 16 10)))
            (decoded (decode-char 'ucs ucs)))
       (when decoded
@@ -1515,7 +1527,7 @@ Called by `nero-follow-link-internal'."
                                 (point)) 
                               (line-end-position))))
     (nero-restore-page (nero-page-from-url url) t)
-    (goto-char (string-to-int pt))))
+    (goto-char (nero-string-to-int pt))))
 
 (defun nero-page-from-url (url)
   "Given a URL, return the page browsing that url, if any."
@@ -1747,9 +1759,9 @@ NAME is a user-specified string that says what to call the bookmark."
 
 ;; everywhere *else* we may as well call `nero-current-url' - makes
 ;; the code easier to read.
-(defun nero-current-url ()
-  "Return the current url (if any)."
-  (caar (last nero-history)))
+(eval-and-compile (defun nero-current-url ()
+                    "Return the current url (if any)."
+                    (caar (last nero-history))))
 
 (defun nero-current-link ()
   "Return the current link (if any)."
@@ -2027,31 +2039,33 @@ SEARCH-STRING is the query to submit."
   (funcall (cdr (assoc nero-default-elvis nero-elvi))
            search-string))
 
-(defun nero-follow-numbers (lis handler)
-  "Used by `nero-defjump' to add a nested list of actions.
+(eval-and-compile
+  (defun nero-follow-numbers (lis handler)
+    "Used by `nero-defjump' to add a nested list of actions.
 Each action corresponds to following a given numbered link in LIS.
 The last link in the list is followed using HANDLER."
-  (let (ret)
-    (nero-recursively-add-number-actions (reverse lis) handler ret)))
+    (let (ret)
+      (nero-recursively-add-number-actions (reverse lis) handler ret))))
 
-(defun nero-recursively-add-number-actions (lis handler ret)
-  "Build a nested list of actions for `nero-follow-numbers'."
-  (when lis
-    (setq ret (nero-recursively-add-number-actions
-               (cdr lis)
-               handler
-               (if ret
+(eval-and-compile
+  (defun nero-recursively-add-number-actions (lis handler ret)
+    "Build a nested list of actions for `nero-follow-numbers'."
+    (when lis
+      (setq ret (nero-recursively-add-number-actions
+                 (cdr lis)
+                 handler
+                 (if ret
+                     `(lambda () 
+                        (nero-follow-link
+                         ,(car lis)
+                         nil
+                         ,ret
+                         t))
                    `(lambda () 
                       (nero-follow-link
                        ,(car lis)
-                       nil
-                       ,ret
-                       t))
-                 `(lambda () 
-                    (nero-follow-link
-                     ,(car lis)
-                     ,handler))))))
-  ret)
+                       ,handler))))))
+    ret))
 
 (defmacro nero-defjump (name baseurl 
                              &optional handler run-after-load 
@@ -2117,7 +2131,6 @@ see `nero-oddmuse-recent-changes-handler'."
   "http://www.ma.utexas.edu/~jcorneli/"
   nil
   nil
-  13
   2)
 
 (nero-defjump "PlanetMath"
